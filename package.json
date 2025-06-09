@@ -1,16 +1,15 @@
 {
-  "name": "zhihu",
-  "module": "index.ts",
-  "type": "module",
-  "private": true,
-  "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
-  },
-  "dependencies": {
-    "canvas": "^3.1.0",
-    "playwright-core": "^1.52.0"
-  }
+    "name": "zhihu",
+    "module": "index.ts",
+    "type": "module",
+    "private": true,
+    "devDependencies": {
+        "@types/bun": "latest"
+    },
+    "peerDependencies": {
+        "typescript": "^5"
+    },
+    "dependencies": {
+        "puppeteer-real-browser": "https://github.com/pencilbsp/puppeteer-real-browser.git"
+    }
 }

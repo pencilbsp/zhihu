@@ -1,48 +1,167 @@
-import { macOCR, getText } from "./utils";
+import os from "os";
+import { connect } from "puppeteer-real-browser";
+import { winOCR, macOCR } from "./utils";
 
-async function main() {
-    // const textFile = Bun.file("test.txt");
-    // const textContent = await textFile.text();
+declare global {
+    interface Window {
+        drawText?: (
+            text: string,
+            fontSize: number,
+            padding?: number,
+            fontFamily?: string,
+        ) => HTMLCanvasElement;
+    }
+}
 
-    // const textLines = textContent.split("\n");
-    // const lines = textLines
-    //     .filter((t) => t.trim())
-    //     .map((line, index) => ({ text: line, index }));
+if (!process.argv[2]) {
+    console.error("Usage: zhihu <url>");
+    process.exit(1);
+}
 
-    // const results = new Array(lines.length).fill("");
+let chromePath = "";
+const sys = os.platform();
 
-    // let done = 0;
-    // const CONCURRENCY = 10;
-    // const tasks = lines.map((item, i) => async () => {
-    //     if (item.index !== null) {
-    //         const ocrText = await macOCR(item.text);
-    //         done++;
-    //         results[i] = ocrText.split("\n").join(" ");
-    //         console.log(`Done ${done}/${lines.length}: ${results[i]}`);
-    //         // Thay newline bằng space, theo yêu cầu trước
-    //     }
-    // });
+if (sys === "win32") {
+    console.log("Running on Windows");
+    chromePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
+} else if (sys === "darwin") {
+    console.log("Running on macOS");
+    chromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+} else {
+    process.exit(1);
+}
 
-    // // 5. Thực thi theo từng "lô" (batch) 10 tasks một
-    // for (let i = 0; i < tasks.length; i += CONCURRENCY) {
-    //     const batch = tasks.slice(i, i + CONCURRENCY);
-    //     // Chạy đồng thời 10
-    //     await Promise.all(batch.map((fn) => fn()));
-    // }
+chromePath = process.env.CHROME_PATH || chromePath;
 
-    // const allText = results.join("\n");
+async function main(url: string) {
+    const { page, browser } = await connect({
+        headless: false,
+        customConfig: { chromePath },
+        connectOption: { defaultViewport: null },
+    });
 
-    // await Bun.write("output.txt", allText);
+    try {
+        await page.evaluateOnNewDocument(() => {
+            window.drawText = (
+                text: string,
+                fontSize: number,
+                padding: number = 10,
+                fontFamily: string = "CustomFont",
+            ) => {
+                // Tạo canvas “off-screen”
+                const canvas = document.createElement("canvas");
+                const ctx = canvas.getContext("2d")!;
 
-    const data = await getText(
-        "https://www.zhihu.com/market/paid_column/1822324978940571648/section/1824497947582267392",
-    );
+                // Bước 1: đo sample “Hg” để tính scale
+                ctx.font = `${fontSize}px ${fontFamily}`;
+                const m1 = ctx.measureText("Hg");
+                const realH =
+                    m1.actualBoundingBoxAscent + m1.actualBoundingBoxDescent;
+                const scale = fontSize / realH;
+                const adjustedSize = fontSize * scale;
 
-    // console.log(data);
+                // Bước 2: đo đoạn text
+                ctx.font = `${adjustedSize}px ${fontFamily}`;
+                const m2 = ctx.measureText(text);
+                const ascent = m2.actualBoundingBoxAscent;
+                const descent = m2.actualBoundingBoxDescent;
+                const textW = m2.width;
+                const textH = ascent + descent;
+
+                // Bước 3: set kích thước canvas lớn hơn để nét
+                canvas.width = Math.ceil(textW + padding * 2);
+                canvas.height = Math.ceil(textH + padding * 2);
+                // Nếu muốn giữ kích thước CSS hiển thị, bạn có thể:
+                // canvas.style.width = `${canvas.width / scale}px`;
+                // canvas.style.height = `${canvas.height / scale}px`;
+
+                const c2 = canvas.getContext("2d")!;
+                // fill background trắng (tuỳ bạn)
+                c2.fillStyle = "#fff";
+                c2.fillRect(0, 0, canvas.width, canvas.height);
+
+                // c2.scale(scale, scale);
+                c2.font = `${fontSize}px ${fontFamily}`;
+                c2.fillStyle = "#000";
+                c2.textBaseline = "alphabetic";
+
+                // vẽ text tại vị trí tính sẵn
+                const x = padding;
+                const y = padding + ascent;
+                c2.fillText(text, x, y);
+
+                return canvas;
+            };
+        });
+
+        await page.goto(url, { waitUntil: ["load", "networkidle0"] });
+
+        await page.waitForSelector("#manuscript");
+
+        const arrayHandle = await page.evaluateHandle(() => {
+            if (!window.drawText) return null;
+            const div = document.querySelector("#manuscript")!;
+            const items = Array.from(
+                div.querySelectorAll("h1, h2, h3, h4, h5, h6, p"),
+            );
+            const handles: HTMLCanvasElement[] = [];
+            for (const elm of items) {
+                const txt = elm.textContent?.trim();
+                if (!txt) continue;
+                const fam = window.getComputedStyle(elm).fontFamily;
+                const canvas = window.drawText(txt, 100, 10, fam);
+                // append để screenshot được
+
+                document.body.appendChild(canvas);
+                handles.push(canvas);
+            }
+            return handles;
+        });
+
+        // 4. Lấy các ElementHandle từ arrayHandle
+        const canvasHandles: any[] = [];
+        const properties = await arrayHandle.getProperties();
+        for (const handle of properties.values()) {
+            const element = handle.asElement();
+            if (element) canvasHandles.push(element);
+        }
+
+        // 5. Chụp từng canvas
+        let results = [];
+        for (let i = 0; i < canvasHandles.length; i++) {
+            const buffer: Buffer = await canvasHandles[i].screenshot();
+            let text: string;
+
+            if (sys === "darwin") {
+                text = await macOCR(buffer);
+            } else {
+                text = await winOCR(buffer);
+            }
+
+            const allText = text.trim().replace(/\n+/g, " ");
+            console.log(i, allText);
+            results.push(allText);
+        }
+
+        await Bun.write("output.txt", results.join("\n"));
+
+        // 6. (tuỳ chọn) Dọn sạch
+        await page.evaluate(() => {
+            document.querySelectorAll("canvas").forEach((c) => {
+                c.remove();
+            });
+        });
+
+        await page.close();
+        await browser.close();
+    } catch (error) {
+        await page.close();
+        await browser.close();
+    }
 }
 
 try {
-    await main();
+    await main(process.argv[2]!);
 } catch (error) {
     console.error(error);
 }
