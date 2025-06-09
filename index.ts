@@ -157,6 +157,8 @@ async function main(url: string) {
     } catch (error) {
         await page.close();
         await browser.close();
+
+        throw error;
     }
 }
 
