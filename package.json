@@ -1,6 +1,8 @@
 {
     "name": "zhihu",
-    "module": "index.ts",
+    "version": "1.0.0",
+    "author": "@pencil",
+    "module": "zhihu.ts",
     "type": "module",
     "private": true,
     "devDependencies": {
@@ -10,6 +12,7 @@
         "typescript": "^5"
     },
     "dependencies": {
+        "fast-xml-parser": "^5.2.5",
         "puppeteer-real-browser": "https://github.com/pencilbsp/puppeteer-real-browser.git"
     }
 }

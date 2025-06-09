@@ -14,10 +14,10 @@ interface Point {
 }
 
 interface Glyph {
-    name: string;
-    bbox: { xMin: number; yMin: number; xMax: number; yMax: number };
-    contours: Point[][];
     md5: string;
+    name: string;
+    contours: Point[][];
+    bbox: { xMin: number; yMin: number; xMax: number; yMax: number };
 }
 
 // --- 1) Định nghĩa overloads ---
@@ -29,7 +29,7 @@ export async function dumpFont(
     reverse: true,
 ): Promise<Record<string, string>>;
 
-async function dumpFont(xml: string, reverse = false) {
+export async function dumpFont(xml: string, reverse = false) {
     const jsonObj = parser.parse(xml);
     const glyphs: Glyph[] = jsonObj.ttFont.glyf.TTGlyph.map(
         (glyphObj: {
@@ -64,7 +64,6 @@ async function dumpFont(xml: string, reverse = false) {
                       })
                     : [];
 
-            // Đảm bảo contour luôn là mảng
             const uniq = `${bbox.xMax},${bbox.yMax},${bbox.xMin},${bbox.yMin},${contours.length}`;
 
             const md5 = createHash("md5").update(uniq).digest("hex");
@@ -110,36 +109,31 @@ async function dumpFont(xml: string, reverse = false) {
     return data;
 }
 
-const codeToChar = (code: string) => {
-    const cp = parseInt(code, 16);
-    return String.fromCodePoint(cp);
-};
+// try {
+//     const fontA = "zhihu_font";
+//     const fontB = "SourceHanSansCN-Regular#1";
 
-try {
-    const fontA = "zhihu_font";
-    const fontB = "SourceHanSansCN-Regular#1";
+//     const fontAXml = await Bun.file(fontA + ".ttx").text();
+//     const fontBXml = await Bun.file(fontB + ".ttx").text();
 
-    const fontAXml = await Bun.file(fontA + ".ttx").text();
-    const fontBXml = await Bun.file(fontB + ".ttx").text();
+//     const [fontAData, fontBData] = await Promise.all([
+//         dumpFont(fontAXml),
+//         dumpFont(fontBXml, true),
+//     ]);
 
-    const [fontAData, fontBData] = await Promise.all([
-        dumpFont(fontAXml),
-        dumpFont(fontBXml, true),
-    ]);
+//     const charMap: { from: string; to: string }[] = [];
+//     for (const glyph of fontAData) {
+//         if (fontBData[glyph.md5]) {
+//             console.log(
+//                 codeToChar(glyph.code),
+//                 "->",
+//                 codeToChar(fontBData[glyph.md5]!),
+//             );
+//             charMap.push({ from: glyph.code, to: fontBData[glyph.md5]! });
+//         }
+//     }
 
-    const charMap: { from: string; to: string }[] = [];
-    for (const glyph of fontAData) {
-        if (fontBData[glyph.md5]) {
-            console.log(
-                codeToChar(glyph.code),
-                "->",
-                codeToChar(fontBData[glyph.md5]!),
-            );
-            charMap.push({ from: glyph.code, to: fontBData[glyph.md5]! });
-        }
-    }
-
-    console.log(charMap);
-} catch (error) {
-    console.log(error);
-}
+//     console.log(charMap);
+// } catch (error) {
+//     console.log(error);
+// }
