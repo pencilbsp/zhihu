@@ -4,6 +4,9 @@ on:
   release:
     types: [published]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-22.04
@@ -39,37 +42,4 @@ jobs:
         run: bun run build-darwin-arm64
         shell: bash
 
-  create_release:
-    needs: build
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Create GitHub Release
-        uses: actions/create-release@v1
-        id: createRelease
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: "v${{ needs.build.outputs.version }}"
-          release_name: "v${{ needs.build.outputs.version }}"
-          draft: false
-          prerelease: false
-
-      - name: Upload Windows executable
-        uses: actions/upload-release-asset@v1.0.2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.createRelease.outputs.upload_url }}
-          asset_path: '${{ github.workspace }}/zhihu-x86'
-          asset_name: zhihu-windows-x86.exe
-          asset_content_type: application/octet-stream
-
-      - name: Upload macOS binary
-        uses: actions/upload-release-asset@v1.0.2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.createRelease.outputs.upload_url }}
-          asset_path: '${{ github.workspace }}/zhihu'
-          asset_name: zhihu-macos-arm64
-          asset_content_type: application/octet-stream
+    
