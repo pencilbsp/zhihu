@@ -39,14 +39,6 @@ jobs:
         run: bun run build-darwin-arm64
         shell: bash
 
-      - name: Upload binaries as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: zhihu-binaries
-          path: |
-            zhihu-x86
-            zhihu
-
   create_release:
     needs: build
     runs-on: ubuntu-22.04
@@ -63,17 +55,21 @@ jobs:
           prerelease: false
 
       - name: Upload Windows executable
-        uses: softprops/action-upload-release-asset@v1
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.createRelease.outputs.upload_url }}
-          asset_path: zhihu-x86
+          asset_path: '${{ github.workspace }}/zhihu-x86'
           asset_name: zhihu-windows-x86.exe
           asset_content_type: application/octet-stream
 
       - name: Upload macOS binary
-        uses: softprops/action-upload-release-asset@v1
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.createRelease.outputs.upload_url }}
-          asset_path: zhihu
+          asset_path: '${{ github.workspace }}/zhihu'
           asset_name: zhihu-macos-arm64
           asset_content_type: application/octet-stream
