@@ -3,13 +3,12 @@
 To install dependencies:
 
 ```bash
-bun install
+pip3 install fonttools otf2ttf --break-system-packages
 ```
 
 To run:
 
 ```bash
-bun run index.ts
+zhihu-x86 <zhihu_url>
 ```
 
-This project was created using `bun init` in bun v1.2.15. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
