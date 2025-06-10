@@ -1,9 +1,10 @@
 {
     "name": "zhihu",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "author": "@pencil",
-    "module": "zhihu.ts",
     "type": "module",
+    "module": "esnext",
+    "target": "es2022",
     "private": true,
     "devDependencies": {
         "@types/bun": "latest"
@@ -14,5 +15,8 @@
     "dependencies": {
         "fast-xml-parser": "^5.2.5",
         "puppeteer-real-browser": "https://github.com/pencilbsp/puppeteer-real-browser.git"
+    },
+    "scripts": {
+        "build": "bun build --minify --sourcemap .zhihu.ts --compile --outfile zhihu"
     }
 }
