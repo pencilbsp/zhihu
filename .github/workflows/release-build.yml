@@ -1,0 +1,79 @@
+name: Build & Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.read_version.outputs.version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Read version from package.json
+        id: read_version
+        run: |
+          PACKAGE_VERSION=$(cat package.json \
+            | grep version \
+            | head -1 \
+            | awk -F: '{ print $2 }' \
+            | sed 's/[", ]//g')
+          echo "version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+        shell: bash
+
+      - name: Build Windows x64
+        run: bun run build-window
+        shell: bash
+
+      - name: Build macOS ARM64
+        run: bun run build-darwin-arm64
+        shell: bash
+
+      - name: Upload binaries as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: zhihu-binaries
+          path: |
+            zhihu-x86
+            zhihu
+
+  create_release:
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        id: createRelease
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: "v${{ needs.build.outputs.version }}"
+          release_name: "v${{ needs.build.outputs.version }}"
+          draft: false
+          prerelease: false
+
+      - name: Upload Windows executable
+        uses: softprops/action-upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.createRelease.outputs.upload_url }}
+          asset_path: zhihu-x86
+          asset_name: zhihu-windows-x86.exe
+          asset_content_type: application/octet-stream
+
+      - name: Upload macOS binary
+        uses: softprops/action-upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.createRelease.outputs.upload_url }}
+          asset_path: zhihu
+          asset_name: zhihu-macos-arm64
+          asset_content_type: application/octet-stream
