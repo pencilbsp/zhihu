@@ -9,6 +9,6 @@ pip3 install fonttools otf2ttf --break-system-packages
 To run:
 
 ```bash
-zhihu-x86 <zhihu_url>
+zhihu-windows-x86.exe <zhihu_url>
 ```
 
