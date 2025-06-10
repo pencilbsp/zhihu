@@ -43,7 +43,7 @@ Before running the CLI, ensure the following tools are installed and available i
 * **FontTools (ttx)**: Installs the `ttx` utility for converting binary font files to XML. Install via:
 
   ```bash
-  pip install fonttools
+  pip3 install fonttools
   ```
 * **Bun Runtime**: For development mode (latest version recommended).
 
@@ -52,7 +52,6 @@ The CLI uses a `fonts/` directory to temporarily store downloaded font files and
 ## ⚙️ Configuration
 
 * **CHROME\_PATH**: (Optional) Override the path to the Chrome executable.
-* **BUN\_APPDIR**: (Optional) Path to Bun’s application data directory.
 
 ## 🎮 Usage
 
