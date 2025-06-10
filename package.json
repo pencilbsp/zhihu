@@ -17,7 +17,7 @@
         "puppeteer-real-browser": "https://github.com/pencilbsp/puppeteer-real-browser.git"
     },
     "scripts": {
-        "build-darwin-arm64": "bun build --compile --target=bun-darwin-arm64 --minify --sourcemap .zhihu.ts --outfile zhihu",
-        "build-window": "bun build --compile --target=bun-windows-x64-modern --minify --sourcemap .zhihu.ts --outfile zhihu-x86"
+        "build-darwin-arm64": "bun build --compile --target=bun-darwin-arm64 --minify --sourcemap ./zhihu.ts --outfile zhihu",
+        "build-window": "bun build --compile --target=bun-windows-x64-modern --minify --sourcemap ./zhihu.ts --outfile zhihu-x86"
     }
 }
