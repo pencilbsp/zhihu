@@ -9,7 +9,8 @@ import { decodeFont, codePointToChar } from "./utils";
 import map from "./SourceHanSansCN-Regular.json";
 
 if (process.argv.length < 3) {
-    console.log("Usage: zhihu [...options] <zhihu url>");
+    console.log("Usage: zhihu [...options] <url>");
+    console.log("Supported sites: zhihu.com, bjtriz.com");
     process.exit(1);
 }
 
@@ -137,7 +138,77 @@ async function parseCookies() {
     }
 }
 
-async function main() {
+// ─── Detect which site we are dealing with ───────────────────────────────────
+function detectSite(u: string): "zhihu" | "bjtriz" | "unknown" {
+    if (u.includes("zhihu.com")) return "zhihu";
+    if (u.includes("bjtriz.com")) return "bjtriz";
+    return "unknown";
+}
+
+// ─── bjtriz.com ──────────────────────────────────────────────────────────────
+// Cơ chế obfuscation: chèn <i class="icon-NNN"></i> vào trong <p>,
+// ký tự thực được inject qua CSS rule: .icon-NNN::before { content: "字"; }
+// Ta resolve bằng cách đọc getComputedStyle(el, '::before').content
+async function mainBjtriz() {
+    const { page, browser } = await connectBrowser();
+
+    const cookies = await parseCookies();
+    if (Array.isArray(cookies)) {
+        await browser.setCookie(...cookies);
+    }
+
+    console.log("[bjtriz] Đang tải trang...");
+    await page.goto(url, { waitUntil: ["load", "networkidle2"] });
+
+    // Đợi container nội dung xuất hiện
+    await page.waitForSelector("#novelcontent", { timeout: 30_000 });
+    console.log("[bjtriz] Đã tìm thấy #novelcontent, đang trích xuất...");
+
+    const lines = await page.evaluate(() => {
+        const container = document.querySelector("#novelcontent");
+        if (!container) return [];
+
+        const paragraphs = container.querySelectorAll("p");
+        const result: string[] = [];
+
+        for (const p of Array.from(paragraphs)) {
+            let text = "";
+            for (const node of Array.from(p.childNodes)) {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    // Văn bản thường
+                    text += node.textContent ?? "";
+                } else if (
+                    node.nodeType === Node.ELEMENT_NODE &&
+                    (node as Element).tagName === "I"
+                ) {
+                    // <i class="icon-NNN"> → lấy ký tự từ ::before pseudo-element
+                    const el = node as HTMLElement;
+                    const before = window
+                        .getComputedStyle(el, "::before")
+                        .getPropertyValue("content");
+                    // content trả về dạng '"字"' (có dấu ngoặc kép), cần strip
+                    if (before && before !== "none" && before !== "normal") {
+                        text += before.replace(/^["']|["']$/g, "");
+                    }
+                }
+            }
+            const trimmed = text.trim();
+            if (trimmed) result.push(trimmed);
+        }
+
+        return result;
+    });
+
+    await page.close();
+    await browser.close();
+
+    console.log(`[bjtriz] Trích xuất được ${lines.length} đoạn văn.`);
+    await Bun.write(outputFile, lines.join("\n"));
+    console.log(`[bjtriz] Đã lưu vào ${outputFile}`);
+}
+
+// ─── zhihu.com ───────────────────────────────────────────────────────────────
+async function mainZhihu() {
     const { page, browser } = await connectBrowser();
 
     const cookies = await parseCookies();
@@ -221,6 +292,22 @@ async function main() {
     );
 
     await Bun.write(outputFile, lines.join("\n"));
+}
+
+// ─── Dispatcher ──────────────────────────────────────────────────────────────
+async function main() {
+    const site = detectSite(url);
+    console.log(`[site] Detected: ${site} (${url})`);
+
+    if (site === "bjtriz") {
+        await mainBjtriz();
+    } else if (site === "zhihu") {
+        await mainZhihu();
+    } else {
+        console.error(`❌ URL không được hỗ trợ: ${url}`);
+        console.error("Các site được hỗ trợ: zhihu.com, bjtriz.com");
+        process.exit(1);
+    }
 }
 
 async function run() {
